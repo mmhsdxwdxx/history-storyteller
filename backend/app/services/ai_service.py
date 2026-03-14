@@ -6,6 +6,7 @@ from app.providers.gemini_provider import GeminiProvider
 class AIService:
     def __init__(self):
         self.providers = {}
+        self.default_provider = settings.DEFAULT_PROVIDER
 
         if settings.OPENAI_API_URL and settings.OPENAI_API_KEY:
             self.providers["openai"] = OpenAIProvider(

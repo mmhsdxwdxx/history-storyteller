@@ -3,18 +3,31 @@
     <Toast :show="toast.show" :message="toast.message" :type="toast.type" />
 
     <header class="header">
-      <h1>历史故事创作工具</h1>
-      <p class="subtitle">将史书原文转化为诙谐有趣的小红书内容</p>
+      <div class="header-content">
+        <div class="header-title">
+          <h1>历史故事创作工具</h1>
+          <p class="subtitle">将史书原文转化为诙谐有趣的小红书内容</p>
+        </div>
+        <div class="header-provider">
+          <template v-if="providerLoadError">
+            <span class="provider-error">AI provider 信息加载失败</span>
+          </template>
+          <template v-else-if="providers.length === 0">
+            <span class="provider-warning">未配置可用 AI provider</span>
+          </template>
+          <template v-else>
+            <label>AI Provider</label>
+            <select v-model="selectedProvider" class="provider-select">
+              <option v-for="p in providers" :key="p" :value="p">{{ p }}</option>
+            </select>
+          </template>
+        </div>
+      </div>
     </header>
 
     <main class="workspace">
       <aside class="workspace-sidebar">
-        <ContentCreator
-          :providers="providers"
-          :default-provider="defaultProvider"
-          v-model:selected-provider="selectedProvider"
-          @create="handleCreate"
-        />
+        <ContentCreator @create="handleCreate" />
       </aside>
 
       <section class="workspace-main">
@@ -31,7 +44,7 @@
           :error="loadError"
           :selected-id="selectedContent?.id"
           :processing-ids="processingIds"
-          :has-providers="providers.length > 0"
+          :can-process="canProcess"
           @select="handleSelect"
           @process="handleProcess"
         />
@@ -41,7 +54,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { contentAPI, providerAPI } from './api/client'
 import Toast from './components/Toast.vue'
 import ContentCreator from './components/ContentCreator.vue'
@@ -58,9 +71,13 @@ export default {
     const loadError = ref(null)
     const toast = ref({ show: false, message: '', type: 'info' })
     const providers = ref([])
-    const defaultProvider = ref(null)
+    const providerLoadError = ref(false)
     const selectedProvider = ref(null)
     let toastTimer = null
+
+    const canProcess = computed(() => {
+      return providers.value.length > 0 && selectedProvider.value && !providerLoadError.value
+    })
 
     const showToast = (message, type = 'info') => {
       if (toastTimer) clearTimeout(toastTimer)
@@ -85,13 +102,14 @@ export default {
 
     const loadProviders = async () => {
       try {
+        providerLoadError.value = false
         const res = await providerAPI.list()
         providers.value = res.data.available_providers || []
-        defaultProvider.value = res.data.default_provider
         selectedProvider.value = res.data.default_provider || providers.value[0] || null
       } catch (error) {
-        console.error('加载 providers 失败', error)
+        providerLoadError.value = true
         providers.value = []
+        selectedProvider.value = null
       }
     }
 
@@ -136,7 +154,11 @@ export default {
         if (status === 409) {
           showToast('该内容正在处理中', 'warning')
         } else if (status === 422) {
-          showToast('当前 AI provider 不可用，请重新选择', 'error')
+          if (detail.includes('not configured') || detail.includes('not available')) {
+            showToast('当前选择的 provider 不可用，请重新选择', 'error')
+          } else {
+            showToast('配置错误: ' + detail, 'error')
+          }
         } else {
           showToast('处理失败: ' + detail, 'error')
         }
@@ -158,8 +180,9 @@ export default {
       loadError,
       toast,
       providers,
-      defaultProvider,
+      providerLoadError,
       selectedProvider,
+      canProcess,
       showToast,
       handleCreate,
       handleSelect,
@@ -192,23 +215,72 @@ body {
 }
 
 .header {
-  text-align: center;
-  padding: 48px 20px 32px;
   background: linear-gradient(135deg, var(--color-vermilion) 0%, #a83426 100%);
   color: var(--color-white);
   box-shadow: var(--shadow-md);
 }
 
-.header h1 {
-  font-size: 2rem;
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 32px;
+  max-width: 1600px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.header-title h1 {
+  font-size: 1.75rem;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   font-family: var(--font-serif);
 }
 
 .subtitle {
-  font-size: 1rem;
-  opacity: 0.95;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.header-provider {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.header-provider label {
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+
+.provider-select {
+  padding: 8px 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.1);
+  color: var(--color-white);
+  font-size: 0.9rem;
+  cursor: pointer;
+  min-width: 120px;
+}
+
+.provider-select:focus {
+  outline: none;
+  border-color: rgba(255,255,255,0.6);
+}
+
+.provider-error {
+  padding: 8px 16px;
+  background: rgba(220, 38, 38, 0.8);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+}
+
+.provider-warning {
+  padding: 8px 16px;
+  background: rgba(217, 119, 6, 0.8);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
 }
 
 .workspace {
@@ -248,6 +320,20 @@ body {
 }
 
 @media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: 20px 16px;
+  }
+
+  .header-title {
+    text-align: center;
+  }
+
+  .header-title h1 {
+    font-size: 1.5rem;
+  }
+
   .workspace {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto auto;
@@ -260,14 +346,6 @@ body {
   .workspace-list {
     grid-column: 1;
     min-height: auto;
-  }
-
-  .header h1 {
-    font-size: 1.5rem;
-  }
-
-  .subtitle {
-    font-size: 0.875rem;
   }
 }
 </style>
