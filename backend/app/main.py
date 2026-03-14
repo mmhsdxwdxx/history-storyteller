@@ -10,7 +10,9 @@ from sqlalchemy import text
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    max_retries = 30
+    max_retries = 3
+    retry_delay = 1
+
     for i in range(max_retries):
         try:
             with engine.connect() as conn:
@@ -18,9 +20,9 @@ async def lifespan(app: FastAPI):
             break
         except Exception as e:
             if i < max_retries - 1:
-                time.sleep(1)
+                time.sleep(retry_delay)
             else:
-                raise Exception("Database connection failed after 30 retries")
+                raise Exception(f"Database connection failed after {max_retries} retries. Check DATABASE_URL configuration.")
 
     Base.metadata.create_all(bind=engine)
     yield

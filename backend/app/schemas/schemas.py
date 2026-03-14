@@ -1,9 +1,16 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional
 
 class ContentCreate(BaseModel):
     title: str
     original_text: str
+
+    @field_validator('title', 'original_text')
+    @classmethod
+    def not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError('Field cannot be empty or whitespace only')
+        return v.strip()
 
 class ContentUpdate(BaseModel):
     title: Optional[str] = None
