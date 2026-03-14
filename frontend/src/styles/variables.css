@@ -1,0 +1,40 @@
+:root {
+  /* 颜色系统 - 古籍编辑台风格 */
+  --color-paper: #faf8f3;
+  --color-paper-dark: #f5f1eb;
+  --color-ink: #2d2d2d;
+  --color-ink-light: #6b7280;
+  --color-vermilion: #c8402e;
+  --color-vermilion-light: #e85d4a;
+  --color-bronze: #b8860b;
+  --color-jade: #3d5a4c;
+  --color-border: #e5ddd1;
+  --color-white: #ffffff;
+
+  /* 状态色 */
+  --color-draft: #9ca3af;
+  --color-processing: #d97706;
+  --color-completed: #059669;
+  --color-error: #dc2626;
+
+  /* 字体 */
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-serif: "Songti SC", "STSong", Georgia, serif;
+
+  /* 间距 */
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* 圆角 */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 3px rgba(45, 45, 45, 0.08);
+  --shadow-md: 0 4px 12px rgba(45, 45, 45, 0.12);
+  --shadow-lg: 0 8px 24px rgba(45, 45, 45, 0.16);
+}
