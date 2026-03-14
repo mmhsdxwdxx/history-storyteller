@@ -2,6 +2,18 @@
   <div class="list">
     <h2 class="list-title">内容列表</h2>
 
+    <div v-if="providerState !== 'ready'" class="list-provider-hint">
+      <template v-if="providerState === 'loading'">
+        正在加载 AI provider，请稍候...
+      </template>
+      <template v-else-if="providerState === 'error'">
+        AI provider 加载失败，无法处理内容
+      </template>
+      <template v-else-if="providerState === 'empty'">
+        当前未配置可用 AI provider，无法处理内容
+      </template>
+    </div>
+
     <div v-if="loading" class="list-state">
       <div class="spinner"></div>
       <p>加载中...</p>
@@ -32,14 +44,20 @@
         <p class="list-item-preview">{{ getPreview(item.original_text) }}</p>
         <div class="list-item-footer">
           <span class="list-item-time">{{ formatTime(item.updated_at) }}</span>
-          <button
-            v-if="item.status !== 'processing'"
-            @click.stop="$emit('process', item.id)"
-            :disabled="processingIds.has(item.id) || !canProcess"
-            class="list-item-btn"
-          >
-            {{ processingIds.has(item.id) ? '处理中...' : '开始处理' }}
-          </button>
+          <div class="list-item-actions">
+            <button
+              v-if="item.status !== 'processing' && item.status !== 'completed'"
+              @click.stop="$emit('process', item.id)"
+              :disabled="processingIds.has(item.id) || !hasProvider"
+              class="list-item-btn"
+            >
+              {{ processingIds.has(item.id) ? '处理中...' : '开始处理' }}
+            </button>
+            <span v-if="item.status === 'completed'" class="status-done">已完成</span>
+          </div>
+        </div>
+        <div v-if="!hasProvider && item.status === 'draft'" class="list-item-hint">
+          请先配置 AI provider
         </div>
       </div>
     </div>
@@ -54,7 +72,8 @@ export default {
     error: String,
     selectedId: Number,
     processingIds: { type: Set, default: () => new Set() },
-    canProcess: Boolean
+    providerState: { type: String, default: 'ready' },
+    hasProvider: Boolean
   },
   emits: ['select', 'process'],
   setup() {
@@ -103,8 +122,18 @@ export default {
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--color-ink);
-  margin-bottom: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
   font-family: var(--font-serif);
+}
+
+.list-provider-hint {
+  padding: var(--spacing-md);
+  background: #fef3c7;
+  border-radius: var(--radius-md);
+  color: var(--color-processing);
+  font-size: 0.9rem;
+  margin-bottom: var(--spacing-md);
+  text-align: center;
 }
 
 .list-state {
@@ -227,6 +256,12 @@ export default {
   color: var(--color-ink-light);
 }
 
+.list-item-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
 .list-item-btn {
   padding: 4px 12px;
   background: var(--color-paper-dark);
@@ -247,5 +282,38 @@ export default {
 .list-item-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.status-done {
+  font-size: 0.8rem;
+  color: var(--color-completed);
+}
+
+.list-item-hint {
+  margin-top: var(--spacing-xs);
+  font-size: 0.75rem;
+  color: var(--color-ink-light);
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .list {
+    padding: var(--spacing-md);
+  }
+
+  .list-item-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+  }
+
+  .list-item-actions {
+    width: 100%;
+  }
+
+  .list-item-btn {
+    width: 100%;
+    text-align: center;
+  }
 }
 </style>

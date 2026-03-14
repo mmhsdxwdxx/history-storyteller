@@ -3,27 +3,38 @@
     <Toast :show="toast.show" :message="toast.message" :type="toast.type" />
 
     <header class="header">
-      <div class="header-content">
-        <div class="header-title">
-          <h1>历史故事创作工具</h1>
-          <p class="subtitle">将史书原文转化为诙谐有趣的小红书内容</p>
-        </div>
-        <div class="header-provider">
-          <template v-if="providerLoadError">
-            <span class="provider-error">AI provider 信息加载失败</span>
+      <div class="header-brand">
+        <h1>历史故事创作工具</h1>
+        <p class="subtitle">将史书原文转化为诙谐有趣的小红书内容</p>
+      </div>
+    </header>
+
+    <div class="provider-bar">
+      <div class="provider-bar-content">
+        <div class="provider-status">
+          <span class="provider-label">AI Provider</span>
+          <template v-if="providerState === 'loading'">
+            <span class="provider-loading">正在加载 AI provider...</span>
           </template>
-          <template v-else-if="providers.length === 0">
-            <span class="provider-warning">未配置可用 AI provider</span>
+          <template v-else-if="providerState === 'error'">
+            <span class="provider-error-text">AI provider 加载失败</span>
+            <button @click="loadProviders" class="retry-btn">重新加载</button>
+          </template>
+          <template v-else-if="providerState === 'empty'">
+            <span class="provider-empty-text">当前未配置可用 AI provider</span>
           </template>
           <template v-else>
-            <label>AI Provider</label>
+            <span class="provider-current">当前使用：</span>
             <select v-model="selectedProvider" class="provider-select">
               <option v-for="p in providers" :key="p" :value="p">{{ p }}</option>
             </select>
           </template>
         </div>
+        <div class="provider-hint" v-if="providerState === 'ready' && !canProcess">
+          请选择 AI provider 后再开始处理
+        </div>
       </div>
-    </header>
+    </div>
 
     <main class="workspace">
       <aside class="workspace-sidebar">
@@ -44,7 +55,8 @@
           :error="loadError"
           :selected-id="selectedContent?.id"
           :processing-ids="processingIds"
-          :can-process="canProcess"
+          :provider-state="providerState"
+          :has-provider="canProcess"
           @select="handleSelect"
           @process="handleProcess"
         />
@@ -71,12 +83,20 @@ export default {
     const loadError = ref(null)
     const toast = ref({ show: false, message: '', type: 'info' })
     const providers = ref([])
-    const providerLoadError = ref(false)
     const selectedProvider = ref(null)
+    const providerLoadError = ref(false)
+    const providerLoading = ref(true)
     let toastTimer = null
 
+    const providerState = computed(() => {
+      if (providerLoading.value) return 'loading'
+      if (providerLoadError.value) return 'error'
+      if (providers.value.length === 0) return 'empty'
+      return 'ready'
+    })
+
     const canProcess = computed(() => {
-      return providers.value.length > 0 && selectedProvider.value && !providerLoadError.value
+      return providerState.value === 'ready' && selectedProvider.value
     })
 
     const showToast = (message, type = 'info') => {
@@ -101,8 +121,9 @@ export default {
     }
 
     const loadProviders = async () => {
+      providerLoading.value = true
+      providerLoadError.value = false
       try {
-        providerLoadError.value = false
         const res = await providerAPI.list()
         providers.value = res.data.available_providers || []
         selectedProvider.value = res.data.default_provider || providers.value[0] || null
@@ -110,6 +131,8 @@ export default {
         providerLoadError.value = true
         providers.value = []
         selectedProvider.value = null
+      } finally {
+        providerLoading.value = false
       }
     }
 
@@ -154,11 +177,7 @@ export default {
         if (status === 409) {
           showToast('该内容正在处理中', 'warning')
         } else if (status === 422) {
-          if (detail.includes('not configured') || detail.includes('not available')) {
-            showToast('当前选择的 provider 不可用，请重新选择', 'error')
-          } else {
-            showToast('配置错误: ' + detail, 'error')
-          }
+          showToast('当前选择的 provider 不可用，请重新选择', 'error')
         } else {
           showToast('处理失败: ' + detail, 'error')
         }
@@ -180,13 +199,16 @@ export default {
       loadError,
       toast,
       providers,
-      providerLoadError,
       selectedProvider,
+      providerLoading,
+      providerLoadError,
+      providerState,
       canProcess,
       showToast,
       handleCreate,
       handleSelect,
-      handleProcess
+      handleProcess,
+      loadProviders
     }
   }
 }
@@ -220,17 +242,13 @@ body {
   box-shadow: var(--shadow-md);
 }
 
-.header-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.header-brand {
   padding: 24px 32px;
   max-width: 1600px;
   margin: 0 auto;
-  width: 100%;
 }
 
-.header-title h1 {
+.header-brand h1 {
   font-size: 1.75rem;
   font-weight: 600;
   margin-bottom: 4px;
@@ -242,45 +260,87 @@ body {
   opacity: 0.9;
 }
 
-.header-provider {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
+.provider-bar {
+  background: var(--color-white);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
 }
 
-.header-provider label {
-  font-size: 0.875rem;
-  opacity: 0.9;
+.provider-bar-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 32px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.provider-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.provider-label {
+  font-weight: 600;
+  color: var(--color-ink);
+  font-size: 0.9rem;
+}
+
+.provider-loading {
+  color: var(--color-ink-light);
+  font-size: 0.9rem;
+}
+
+.provider-error-text {
+  color: var(--color-error);
+  font-size: 0.9rem;
+}
+
+.provider-empty-text {
+  color: var(--color-processing);
+  font-size: 0.9rem;
+}
+
+.provider-current {
+  color: var(--color-ink-light);
+  font-size: 0.9rem;
 }
 
 .provider-select {
   padding: 8px 16px;
-  border: 2px solid rgba(255,255,255,0.3);
+  border: 2px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: rgba(255,255,255,0.1);
-  color: var(--color-white);
-  font-size: 0.9rem;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-size: 0.95rem;
+  font-weight: 500;
   cursor: pointer;
-  min-width: 120px;
+  min-width: 140px;
 }
 
 .provider-select:focus {
   outline: none;
-  border-color: rgba(255,255,255,0.6);
+  border-color: var(--color-vermilion);
 }
 
-.provider-error {
-  padding: 8px 16px;
-  background: rgba(220, 38, 38, 0.8);
-  border-radius: var(--radius-md);
-  font-size: 0.875rem;
+.retry-btn {
+  padding: 6px 14px;
+  background: var(--color-vermilion);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  cursor: pointer;
 }
 
-.provider-warning {
-  padding: 8px 16px;
-  background: rgba(217, 119, 6, 0.8);
-  border-radius: var(--radius-md);
-  font-size: 0.875rem;
+.retry-btn:hover {
+  background: var(--color-vermilion-light);
+}
+
+.provider-hint {
+  color: var(--color-ink-light);
+  font-size: 0.85rem;
 }
 
 .workspace {
@@ -320,18 +380,24 @@ body {
 }
 
 @media (max-width: 768px) {
-  .header-content {
-    flex-direction: column;
-    gap: var(--spacing-md);
+  .header-brand {
     padding: 20px 16px;
-  }
-
-  .header-title {
     text-align: center;
   }
 
-  .header-title h1 {
+  .header-brand h1 {
     font-size: 1.5rem;
+  }
+
+  .provider-bar-content {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  .provider-status {
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
   .workspace {
