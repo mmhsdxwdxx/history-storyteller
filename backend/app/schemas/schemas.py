@@ -6,6 +6,10 @@ from app.models.database import ContentStatus
 class ErrorResponse(BaseModel):
     detail: str
 
+class ProviderInfoResponse(BaseModel):
+    available_providers: list[str]
+    default_provider: Optional[str] = None
+
 class ContentCreate(BaseModel):
     title: str
     original_text: str

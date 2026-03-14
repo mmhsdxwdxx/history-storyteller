@@ -9,7 +9,12 @@
 
     <main class="workspace">
       <aside class="workspace-sidebar">
-        <ContentCreator @create="handleCreate" />
+        <ContentCreator
+          :providers="providers"
+          :default-provider="defaultProvider"
+          v-model:selected-provider="selectedProvider"
+          @create="handleCreate"
+        />
       </aside>
 
       <section class="workspace-main">
@@ -26,6 +31,7 @@
           :error="loadError"
           :selected-id="selectedContent?.id"
           :processing-ids="processingIds"
+          :has-providers="providers.length > 0"
           @select="handleSelect"
           @process="handleProcess"
         />
@@ -36,7 +42,7 @@
 
 <script>
 import { ref, onMounted } from 'vue'
-import { contentAPI } from './api/client'
+import { contentAPI, providerAPI } from './api/client'
 import Toast from './components/Toast.vue'
 import ContentCreator from './components/ContentCreator.vue'
 import ContentList from './components/ContentList.vue'
@@ -51,6 +57,9 @@ export default {
     const loading = ref(false)
     const loadError = ref(null)
     const toast = ref({ show: false, message: '', type: 'info' })
+    const providers = ref([])
+    const defaultProvider = ref(null)
+    const selectedProvider = ref(null)
     let toastTimer = null
 
     const showToast = (message, type = 'info') => {
@@ -71,6 +80,18 @@ export default {
         loadError.value = '加载失败，请稍后重试'
       } finally {
         loading.value = false
+      }
+    }
+
+    const loadProviders = async () => {
+      try {
+        const res = await providerAPI.list()
+        providers.value = res.data.available_providers || []
+        defaultProvider.value = res.data.default_provider
+        selectedProvider.value = res.data.default_provider || providers.value[0] || null
+      } catch (error) {
+        console.error('加载 providers 失败', error)
+        providers.value = []
       }
     }
 
@@ -97,9 +118,13 @@ export default {
     }
 
     const handleProcess = async (id) => {
+      if (!selectedProvider.value) {
+        showToast('请先选择 AI provider', 'warning')
+        return
+      }
       processingIds.value.add(id)
       try {
-        const res = await contentAPI.process(id)
+        const res = await contentAPI.process(id, selectedProvider.value)
         showToast('处理完成', 'success')
         await loadContents()
         if (selectedContent.value?.id === id) {
@@ -111,7 +136,7 @@ export default {
         if (status === 409) {
           showToast('该内容正在处理中', 'warning')
         } else if (status === 422) {
-          showToast('配置错误: ' + detail, 'error')
+          showToast('当前 AI provider 不可用，请重新选择', 'error')
         } else {
           showToast('处理失败: ' + detail, 'error')
         }
@@ -120,7 +145,10 @@ export default {
       }
     }
 
-    onMounted(loadContents)
+    onMounted(() => {
+      loadProviders()
+      loadContents()
+    })
 
     return {
       contents,
@@ -129,6 +157,9 @@ export default {
       loading,
       loadError,
       toast,
+      providers,
+      defaultProvider,
+      selectedProvider,
       showToast,
       handleCreate,
       handleSelect,

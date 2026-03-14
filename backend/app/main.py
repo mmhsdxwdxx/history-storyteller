@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.api.contents import router as contents_router
+from app.api.providers import router as providers_router
 from app.models.database import Base
 from app.database import engine
 import asyncio
@@ -39,6 +40,7 @@ app.add_middleware(
 )
 
 app.include_router(contents_router)
+app.include_router(providers_router)
 
 @app.get("/")
 async def root():

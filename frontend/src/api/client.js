@@ -10,3 +10,7 @@ export const contentAPI = {
   create: (data) => api.post('/contents', data),
   process: (id, provider) => api.post(`/contents/${id}/process`, null, { params: { provider } })
 }
+
+export const providerAPI = {
+  list: () => api.get('/providers')
+}

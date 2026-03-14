@@ -35,7 +35,7 @@
           <button
             v-if="item.status !== 'processing'"
             @click.stop="$emit('process', item.id)"
-            :disabled="processingIds.has(item.id)"
+            :disabled="processingIds.has(item.id) || !hasProviders"
             class="list-item-btn"
           >
             {{ processingIds.has(item.id) ? '处理中...' : '开始处理' }}
@@ -53,7 +53,8 @@ export default {
     loading: Boolean,
     error: String,
     selectedId: Number,
-    processingIds: { type: Set, default: () => new Set() }
+    processingIds: { type: Set, default: () => new Set() },
+    hasProviders: { type: Boolean, default: true }
   },
   emits: ['select', 'process'],
   setup() {
