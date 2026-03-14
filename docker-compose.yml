@@ -27,7 +27,7 @@ services:
       GEMINI_API_URL: ${GEMINI_API_URL:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-pro}
-      DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-anthropic}
+      DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-openai}
     depends_on:
       - db
     volumes:
