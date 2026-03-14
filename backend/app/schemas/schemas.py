@@ -1,6 +1,10 @@
 from pydantic import BaseModel, field_validator
 from typing import Optional
 from datetime import datetime
+from app.models.database import ContentStatus
+
+class ErrorResponse(BaseModel):
+    detail: str
 
 class ContentCreate(BaseModel):
     title: str
@@ -19,12 +23,13 @@ class ContentResponse(BaseModel):
     original_text: str
     vernacular_text: Optional[str] = None
     humorous_text: Optional[str] = None
-    status: str
+    status: ContentStatus
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+        use_enum_values = True
 
 class ContentUpdate(BaseModel):
     title: Optional[str] = None

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from app.models.database import Content, ContentVersion, ContentStatus
-from app.schemas.schemas import ContentCreate, ContentUpdate, ContentResponse
+from app.schemas.schemas import ContentCreate, ContentUpdate, ContentResponse, ErrorResponse
 from app.services.ai_service import ai_service
 from app.database import get_db
 
@@ -20,14 +20,19 @@ async def create_content(content: ContentCreate, db: Session = Depends(get_db)):
 async def list_contents(db: Session = Depends(get_db)):
     return db.query(Content).all()
 
-@router.get("/{content_id}", response_model=ContentResponse)
+@router.get("/{content_id}", response_model=ContentResponse, responses={404: {"model": ErrorResponse, "description": "Content not found"}})
 async def get_content(content_id: int, db: Session = Depends(get_db)):
     content = db.query(Content).filter(Content.id == content_id).first()
     if not content:
         raise HTTPException(status_code=404, detail="Content not found")
     return content
 
-@router.post("/{content_id}/process", response_model=ContentResponse)
+@router.post("/{content_id}/process", response_model=ContentResponse, responses={
+    404: {"model": ErrorResponse, "description": "Content not found"},
+    409: {"model": ErrorResponse, "description": "Content is already being processed"},
+    422: {"model": ErrorResponse, "description": "AI provider configuration error"},
+    500: {"model": ErrorResponse, "description": "Processing failed"}
+})
 async def process_content(content_id: int, provider: str = None, db: Session = Depends(get_db)):
     content = db.query(Content).filter(Content.id == content_id).first()
     if not content:
