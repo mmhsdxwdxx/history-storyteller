@@ -69,10 +69,14 @@ export default {
     const loadError = ref(null)
     const creating = ref(false)
     const toast = ref({ show: false, message: '', type: 'info' })
+    let toastTimer = null
 
     const showToast = (message, type = 'info') => {
+      if (toastTimer) {
+        clearTimeout(toastTimer)
+      }
       toast.value = { show: true, message, type }
-      setTimeout(() => {
+      toastTimer = setTimeout(() => {
         toast.value.show = false
       }, 3000)
     }
@@ -100,7 +104,7 @@ export default {
       try {
         await contentAPI.create(newContent.value)
         newContent.value = { title: '', original_text: '' }
-        loadContents()
+        await loadContents()
         showToast('创建成功', 'success')
       } catch (error) {
         showToast('创建失败: ' + (error.response?.data?.detail || error.message), 'error')
@@ -116,7 +120,7 @@ export default {
         showToast('处理完成', 'success')
 
         // 立即更新列表
-        loadContents()
+        await loadContents()
 
         // 如果当前查看的是这条内容，更新详情
         if (selectedContent.value && selectedContent.value.id === id) {

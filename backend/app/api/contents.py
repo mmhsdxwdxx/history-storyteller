@@ -8,7 +8,7 @@ from app.database import get_db
 
 router = APIRouter(prefix="/api/contents", tags=["contents"])
 
-@router.post("", response_model=None)
+@router.post("")
 async def create_content(content: ContentCreate, db: Session = Depends(get_db)):
     db_content = Content(title=content.title, original_text=content.original_text)
     db.add(db_content)
@@ -16,7 +16,7 @@ async def create_content(content: ContentCreate, db: Session = Depends(get_db)):
     db.refresh(db_content)
     return db_content
 
-@router.get("", response_model=None)
+@router.get("")
 async def list_contents(db: Session = Depends(get_db)):
     return db.query(Content).all()
 

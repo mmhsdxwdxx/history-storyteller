@@ -4,14 +4,14 @@ from contextlib import asynccontextmanager
 from app.api.contents import router as contents_router
 from app.models.database import Base
 from app.database import engine
-import time
+import asyncio
 from sqlalchemy import text
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     max_retries = 3
-    retry_delay = 1
+    retry_delay = 0.5
 
     for i in range(max_retries):
         try:
@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
             break
         except Exception as e:
             if i < max_retries - 1:
-                time.sleep(retry_delay)
+                await asyncio.sleep(retry_delay)
             else:
                 raise Exception(f"Database connection failed after {max_retries} retries. Check DATABASE_URL configuration.")
 
