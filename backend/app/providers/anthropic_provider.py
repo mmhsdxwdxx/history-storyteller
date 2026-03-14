@@ -18,7 +18,7 @@ class AnthropicProvider(AIProvider):
                 payload["system"] = system_prompt
 
             response = await client.post(
-                f"{self.api_url}/messages",
+                f"{self.api_url}/v1/messages",
                 headers={
                     "x-api-key": self.api_key,
                     "anthropic-version": "2023-06-01"

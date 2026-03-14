@@ -12,7 +12,7 @@ class GeminiProvider(AIProvider):
             full_prompt = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
 
             response = await client.post(
-                f"{self.api_url}/v1/models/{self.model}:generateContent",
+                f"{self.api_url}/v1beta/models/{self.model}:generateContent",
                 headers={"x-goog-api-key": self.api_key},
                 json={"contents": [{"parts": [{"text": full_prompt}]}]},
                 timeout=60.0
