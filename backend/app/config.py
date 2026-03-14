@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = "gemini-pro"
 
     # Default provider: openai, anthropic, or gemini
-    DEFAULT_PROVIDER: str = "anthropic"
+    DEFAULT_PROVIDER: str = "openai"
 
     class Config:
         env_file = ".env"

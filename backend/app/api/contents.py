@@ -33,28 +33,33 @@ async def process_content(content_id: int, provider: str = None, db: Session = D
     if not content:
         raise HTTPException(status_code=404, detail="Content not found")
 
+    if content.status == ContentStatus.PROCESSING:
+        raise HTTPException(status_code=409, detail="Content is already being processed")
+
     content.status = ContentStatus.PROCESSING
     db.commit()
 
     try:
         vernacular = await ai_service.translate_to_vernacular(content.original_text, provider)
-        content.vernacular_text = vernacular
+        humorous = await ai_service.create_humorous_version(vernacular, provider)
 
         version_count = db.query(ContentVersion).filter(ContentVersion.content_id == content_id).count()
-        version = ContentVersion(content_id=content_id, version_number=version_count + 1, field_name="vernacular_text", field_value=vernacular)
-        db.add(version)
 
-        humorous = await ai_service.create_humorous_version(vernacular, provider)
+        content.vernacular_text = vernacular
         content.humorous_text = humorous
+        content.status = ContentStatus.COMPLETED
 
+        version1 = ContentVersion(content_id=content_id, version_number=version_count + 1, field_name="vernacular_text", field_value=vernacular)
         version2 = ContentVersion(content_id=content_id, version_number=version_count + 2, field_name="humorous_text", field_value=humorous)
+        db.add(version1)
         db.add(version2)
 
-        content.status = ContentStatus.COMPLETED
         db.commit()
         db.refresh(content)
         return content
     except Exception as e:
+        db.rollback()
+        content = db.query(Content).filter(Content.id == content_id).first()
         content.status = ContentStatus.DRAFT
         db.commit()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Processing failed")

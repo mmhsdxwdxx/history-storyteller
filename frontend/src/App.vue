@@ -20,8 +20,8 @@
             <h3>{{ item.title }}</h3>
             <span :class="['status-badge', item.status]">{{ statusText(item.status) }}</span>
             <div class="card-actions">
-              <button @click="processContent(item.id)" :disabled="item.status === 'processing'" class="btn btn-secondary">
-                {{ item.status === 'processing' ? '处理中...' : '开始处理' }}
+              <button @click="processContent(item.id)" :disabled="item.status === 'processing' || processingIds.has(item.id)" class="btn btn-secondary">
+                {{ item.status === 'processing' || processingIds.has(item.id) ? '处理中...' : '开始处理' }}
               </button>
               <button @click="viewContent(item.id)" class="btn btn-outline">查看详情</button>
             </div>
@@ -57,6 +57,7 @@ export default {
     const contents = ref([])
     const newContent = ref({ title: '', original_text: '' })
     const selectedContent = ref(null)
+    const processingIds = ref(new Set())
 
     const statusText = (status) => {
       const map = { draft: '草稿', processing: '处理中', completed: '已完成' }
@@ -79,12 +80,15 @@ export default {
     }
 
     const processContent = async (id) => {
+      processingIds.value.add(id)
       try {
         await contentAPI.process(id)
         alert('处理已开始，请稍后刷新查看结果')
         setTimeout(loadContents, 3000)
       } catch (error) {
         alert('处理失败: ' + (error.response?.data?.detail || error.message))
+      } finally {
+        processingIds.value.delete(id)
       }
     }
 
@@ -99,7 +103,7 @@ export default {
 
     onMounted(loadContents)
 
-    return { contents, newContent, selectedContent, statusText, createContent, processContent, viewContent }
+    return { contents, newContent, selectedContent, processingIds, statusText, createContent, processContent, viewContent }
   }
 }
 </script>

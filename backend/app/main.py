@@ -40,4 +40,25 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    from app.services.ai_service import ai_service
+    from sqlalchemy import text
+
+    health_status = {"status": "ok", "checks": {}}
+
+    # Check database
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        health_status["checks"]["database"] = "ok"
+    except Exception as e:
+        health_status["status"] = "degraded"
+        health_status["checks"]["database"] = "failed"
+
+    # Check AI providers
+    if len(ai_service.providers) == 0:
+        health_status["status"] = "degraded"
+        health_status["checks"]["ai_providers"] = "none_configured"
+    else:
+        health_status["checks"]["ai_providers"] = list(ai_service.providers.keys())
+
+    return health_status
