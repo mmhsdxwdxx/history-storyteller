@@ -40,13 +40,14 @@ async def process_content(content_id: int, provider: str = None, db: Session = D
         vernacular = await ai_service.translate_to_vernacular(content.original_text, provider)
         content.vernacular_text = vernacular
 
-        version = ContentVersion(content_id=content_id, version_number=1, field_name="vernacular_text", field_value=vernacular)
+        version_count = db.query(ContentVersion).filter(ContentVersion.content_id == content_id).count()
+        version = ContentVersion(content_id=content_id, version_number=version_count + 1, field_name="vernacular_text", field_value=vernacular)
         db.add(version)
 
         humorous = await ai_service.create_humorous_version(vernacular, provider)
         content.humorous_text = humorous
 
-        version2 = ContentVersion(content_id=content_id, version_number=1, field_name="humorous_text", field_value=humorous)
+        version2 = ContentVersion(content_id=content_id, version_number=version_count + 2, field_name="humorous_text", field_value=humorous)
         db.add(version2)
 
         content.status = ContentStatus.COMPLETED

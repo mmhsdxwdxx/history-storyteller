@@ -69,19 +69,32 @@ export default {
     }
 
     const createContent = async () => {
-      await contentAPI.create(newContent.value)
-      newContent.value = { title: '', original_text: '' }
-      loadContents()
+      try {
+        await contentAPI.create(newContent.value)
+        newContent.value = { title: '', original_text: '' }
+        loadContents()
+      } catch (error) {
+        alert('创建失败: ' + (error.response?.data?.detail || error.message))
+      }
     }
 
     const processContent = async (id) => {
-      await contentAPI.process(id)
-      setTimeout(loadContents, 2000)
+      try {
+        await contentAPI.process(id)
+        alert('处理已开始，请稍后刷新查看结果')
+        setTimeout(loadContents, 3000)
+      } catch (error) {
+        alert('处理失败: ' + (error.response?.data?.detail || error.message))
+      }
     }
 
     const viewContent = async (id) => {
-      const res = await contentAPI.get(id)
-      selectedContent.value = res.data
+      try {
+        const res = await contentAPI.get(id)
+        selectedContent.value = res.data
+      } catch (error) {
+        alert('加载失败: ' + (error.response?.data?.detail || error.message))
+      }
     }
 
     onMounted(loadContents)
