@@ -36,6 +36,10 @@ async def process_content(content_id: int, provider: str = None, db: Session = D
     if content.status == ContentStatus.PROCESSING:
         raise HTTPException(status_code=409, detail="Content is already being processed")
 
+    old_status = content.status
+    old_vernacular = content.vernacular_text
+    old_humorous = content.humorous_text
+
     content.status = ContentStatus.PROCESSING
     db.commit()
 
@@ -57,9 +61,17 @@ async def process_content(content_id: int, provider: str = None, db: Session = D
         db.commit()
         db.refresh(content)
         return content
+    except ValueError as e:
+        db.rollback()
+        content = db.query(Content).filter(Content.id == content_id).first()
+        content.status = old_status
+        db.commit()
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         db.rollback()
         content = db.query(Content).filter(Content.id == content_id).first()
-        content.status = ContentStatus.DRAFT
+        content.status = old_status
+        content.vernacular_text = old_vernacular
+        content.humorous_text = old_humorous
         db.commit()
         raise HTTPException(status_code=500, detail="Processing failed")

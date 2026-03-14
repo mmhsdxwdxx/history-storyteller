@@ -1,28 +1,32 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from app.api.contents import router as contents_router
 from app.models.database import Base
 from app.database import engine
 import time
 from sqlalchemy import text
 
-def wait_for_db():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
     max_retries = 30
     for i in range(max_retries):
         try:
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
-            return
+            break
         except Exception as e:
             if i < max_retries - 1:
                 time.sleep(1)
             else:
-                raise
+                raise Exception("Database connection failed after 30 retries")
 
-wait_for_db()
-Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    yield
+    # Shutdown (if needed)
 
-app = FastAPI(title="History Storyteller API")
+app = FastAPI(title="History Storyteller API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,10 +44,16 @@ async def root():
 
 @app.get("/health")
 async def health():
+    return {"status": "ok"}
+
+@app.get("/health/ready")
+async def health_ready():
     from app.services.ai_service import ai_service
     from sqlalchemy import text
+    from fastapi.responses import JSONResponse
 
     health_status = {"status": "ok", "checks": {}}
+    is_ready = True
 
     # Check database
     try:
@@ -51,14 +61,17 @@ async def health():
             conn.execute(text("SELECT 1"))
         health_status["checks"]["database"] = "ok"
     except Exception as e:
-        health_status["status"] = "degraded"
+        is_ready = False
+        health_status["status"] = "not_ready"
         health_status["checks"]["database"] = "failed"
 
     # Check AI providers
     if len(ai_service.providers) == 0:
-        health_status["status"] = "degraded"
+        is_ready = False
+        health_status["status"] = "not_ready"
         health_status["checks"]["ai_providers"] = "none_configured"
     else:
         health_status["checks"]["ai_providers"] = list(ai_service.providers.keys())
 
-    return health_status
+    status_code = 200 if is_ready else 503
+    return JSONResponse(content=health_status, status_code=status_code)

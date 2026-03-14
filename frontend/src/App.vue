@@ -86,7 +86,18 @@ export default {
         alert('处理已开始，请稍后刷新查看结果')
         setTimeout(loadContents, 3000)
       } catch (error) {
-        alert('处理失败: ' + (error.response?.data?.detail || error.message))
+        const status = error.response?.status
+        const detail = error.response?.data?.detail || error.message
+
+        if (status === 409) {
+          alert('该内容正在处理中，请勿重复提交')
+        } else if (status === 422) {
+          alert('配置错误: ' + detail)
+        } else if (status === 503) {
+          alert('服务未就绪，请稍后重试')
+        } else {
+          alert('处理失败: ' + detail)
+        }
       } finally {
         processingIds.value.delete(id)
       }
