@@ -1,5 +1,6 @@
 from pydantic import BaseModel, field_validator
 from typing import Optional
+from datetime import datetime
 
 class ContentCreate(BaseModel):
     title: str
@@ -11,6 +12,19 @@ class ContentCreate(BaseModel):
         if not v or not v.strip():
             raise ValueError('Field cannot be empty or whitespace only')
         return v.strip()
+
+class ContentResponse(BaseModel):
+    id: int
+    title: str
+    original_text: str
+    vernacular_text: Optional[str] = None
+    humorous_text: Optional[str] = None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 class ContentUpdate(BaseModel):
     title: Optional[str] = None
