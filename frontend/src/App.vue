@@ -10,12 +10,15 @@
         <h2>创建新内容</h2>
         <input v-model="newContent.title" placeholder="输入标题" class="input" />
         <textarea v-model="newContent.original_text" placeholder="粘贴史书原文" rows="6" class="textarea"></textarea>
-        <button @click="createContent" class="btn btn-primary">创建内容</button>
+        <button @click="createContent" :disabled="creating" class="btn btn-primary">{{ creating ? '创建中...' : '创建内容' }}</button>
       </section>
 
       <section class="list-section">
         <h2>内容列表</h2>
-        <div class="content-grid">
+        <div v-if="loading" class="loading-state">加载中...</div>
+        <div v-else-if="loadError" class="error-state">{{ loadError }}</div>
+        <div v-else-if="contents.length === 0" class="empty-state">暂无内容，创建第一篇吧</div>
+        <div v-else class="content-grid">
           <div v-for="item in contents" :key="item.id" class="card content-card">
             <h3>{{ item.title }}</h3>
             <span :class="['status-badge', item.status]">{{ statusText(item.status) }}</span>
@@ -58,6 +61,9 @@ export default {
     const newContent = ref({ title: '', original_text: '' })
     const selectedContent = ref(null)
     const processingIds = ref(new Set())
+    const loading = ref(false)
+    const loadError = ref(null)
+    const creating = ref(false)
 
     const statusText = (status) => {
       const map = { draft: '草稿', processing: '处理中', completed: '已完成' }
@@ -65,26 +71,44 @@ export default {
     }
 
     const loadContents = async () => {
-      const res = await contentAPI.list()
-      contents.value = res.data
+      loading.value = true
+      loadError.value = null
+      try {
+        const res = await contentAPI.list()
+        contents.value = res.data
+      } catch (error) {
+        loadError.value = '加载失败: ' + (error.response?.data?.detail || error.message)
+      } finally {
+        loading.value = false
+      }
     }
 
     const createContent = async () => {
+      creating.value = true
       try {
         await contentAPI.create(newContent.value)
         newContent.value = { title: '', original_text: '' }
         loadContents()
       } catch (error) {
         alert('创建失败: ' + (error.response?.data?.detail || error.message))
+      } finally {
+        creating.value = false
       }
     }
 
     const processContent = async (id) => {
       processingIds.value.add(id)
       try {
-        await contentAPI.process(id)
-        alert('处理已开始，请稍后刷新查看结果')
-        setTimeout(loadContents, 3000)
+        const res = await contentAPI.process(id)
+        alert('处理完成')
+
+        // 立即更新列表
+        loadContents()
+
+        // 如果当前查看的是这条内容，更新详情
+        if (selectedContent.value && selectedContent.value.id === id) {
+          selectedContent.value = res.data
+        }
       } catch (error) {
         const status = error.response?.status
         const detail = error.response?.data?.detail || error.message
@@ -114,7 +138,7 @@ export default {
 
     onMounted(loadContents)
 
-    return { contents, newContent, selectedContent, processingIds, statusText, createContent, processContent, viewContent }
+    return { contents, newContent, selectedContent, processingIds, loading, loadError, creating, statusText, createContent, processContent, viewContent }
   }
 }
 </script>
@@ -252,5 +276,15 @@ h3 { font-size: 1.2rem; margin-bottom: 12px; color: #2d2d2d; }
 .text-block p {
   white-space: pre-wrap;
   line-height: 1.8;
+}
+
+.loading-state, .error-state, .empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6b7280;
+}
+
+.error-state {
+  color: #dc2626;
 }
 </style>
