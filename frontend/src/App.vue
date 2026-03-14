@@ -1,5 +1,9 @@
 <template>
   <div id="app">
+    <div v-if="toast.show" :class="['toast', `toast-${toast.type}`]">
+      {{ toast.message }}
+    </div>
+
     <header class="header">
       <h1>历史故事创作工具</h1>
       <p class="subtitle">将史书原文转化为诙谐有趣的小红书内容</p>
@@ -64,6 +68,14 @@ export default {
     const loading = ref(false)
     const loadError = ref(null)
     const creating = ref(false)
+    const toast = ref({ show: false, message: '', type: 'info' })
+
+    const showToast = (message, type = 'info') => {
+      toast.value = { show: true, message, type }
+      setTimeout(() => {
+        toast.value.show = false
+      }, 3000)
+    }
 
     const statusText = (status) => {
       const map = { draft: '草稿', processing: '处理中', completed: '已完成' }
@@ -89,8 +101,9 @@ export default {
         await contentAPI.create(newContent.value)
         newContent.value = { title: '', original_text: '' }
         loadContents()
+        showToast('创建成功', 'success')
       } catch (error) {
-        alert('创建失败: ' + (error.response?.data?.detail || error.message))
+        showToast('创建失败: ' + (error.response?.data?.detail || error.message), 'error')
       } finally {
         creating.value = false
       }
@@ -100,7 +113,7 @@ export default {
       processingIds.value.add(id)
       try {
         const res = await contentAPI.process(id)
-        alert('处理完成')
+        showToast('处理完成', 'success')
 
         // 立即更新列表
         loadContents()
@@ -114,13 +127,13 @@ export default {
         const detail = error.response?.data?.detail || error.message
 
         if (status === 409) {
-          alert('该内容正在处理中，请勿重复提交')
+          showToast('该内容正在处理中，请勿重复提交', 'warning')
         } else if (status === 422) {
-          alert('配置错误: ' + detail)
+          showToast('配置错误: ' + detail, 'error')
         } else if (status === 503) {
-          alert('服务未就绪，请稍后重试')
+          showToast('服务未就绪，请稍后重试', 'warning')
         } else {
-          alert('处理失败: ' + detail)
+          showToast('处理失败: ' + detail, 'error')
         }
       } finally {
         processingIds.value.delete(id)
@@ -132,13 +145,13 @@ export default {
         const res = await contentAPI.get(id)
         selectedContent.value = res.data
       } catch (error) {
-        alert('加载失败: ' + (error.response?.data?.detail || error.message))
+        showToast('加载失败: ' + (error.response?.data?.detail || error.message), 'error')
       }
     }
 
     onMounted(loadContents)
 
-    return { contents, newContent, selectedContent, processingIds, loading, loadError, creating, statusText, createContent, processContent, viewContent }
+    return { contents, newContent, selectedContent, processingIds, loading, loadError, creating, toast, statusText, createContent, processContent, viewContent }
   }
 }
 </script>
@@ -238,8 +251,24 @@ h3 { font-size: 1.2rem; margin-bottom: 12px; color: #2d2d2d; }
 
 .content-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
+}
+
+@media (max-width: 640px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .card-actions .btn {
+    width: 100%;
+    margin: 0;
+  }
 }
 
 .content-card {
@@ -287,4 +316,26 @@ h3 { font-size: 1.2rem; margin-bottom: 12px; color: #2d2d2d; }
 .error-state {
   color: #dc2626;
 }
+
+.toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  color: white;
+  font-weight: 500;
+  z-index: 1000;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.toast-success { background: #059669; }
+.toast-error { background: #dc2626; }
+.toast-warning { background: #d97706; }
+.toast-info { background: #2563eb; }
 </style>
