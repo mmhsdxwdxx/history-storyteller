@@ -10,7 +10,8 @@ export const contentAPI = {
   create: (data) => api.post('/contents', data),
   process: (id, provider) => api.post(`/contents/${id}/process`, null, {
     params: { provider }
-  })
+  }),
+  getGenerations: (id) => api.get(`/contents/${id}/generations`)
 }
 
 export const providerAPI = {

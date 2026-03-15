@@ -17,13 +17,12 @@ class Content(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(200), nullable=False)
     original_text = Column(Text)
-    vernacular_text = Column(Text)
-    humorous_text = Column(Text)
     status = Column(Enum(ContentStatus), default=ContentStatus.DRAFT)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     versions = relationship("ContentVersion", back_populates="content")
+    generations = relationship("GenerationResult", back_populates="content", order_by="desc(GenerationResult.created_at)")
 
 class ContentVersion(Base):
     __tablename__ = "content_versions"
@@ -36,6 +35,18 @@ class ContentVersion(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     content = relationship("Content", back_populates="versions")
+
+class GenerationResult(Base):
+    __tablename__ = "generation_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    content_id = Column(Integer, ForeignKey("contents.id"), nullable=False)
+    provider = Column(String(50), nullable=False)
+    vernacular_text = Column(Text)
+    humorous_text = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    content = relationship("Content", back_populates="generations")
 
 class Material(Base):
     __tablename__ = "materials"

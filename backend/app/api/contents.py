@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
-from app.models.database import Content, ContentVersion, ContentStatus
-from app.schemas.schemas import ContentCreate, ContentUpdate, ContentResponse, ErrorResponse
+from typing import List, Optional
+from app.models.database import Content, ContentVersion, ContentStatus, GenerationResult
+from app.schemas.schemas import ContentCreate, ContentUpdate, ContentResponse, GenerationResultResponse, ErrorResponse
 from app.services.ai_service import ai_service
 from app.database import get_db
 
@@ -18,16 +18,28 @@ async def create_content(content: ContentCreate, db: Session = Depends(get_db)):
 
 @router.get("", response_model=List[ContentResponse])
 async def list_contents(db: Session = Depends(get_db)):
-    return db.query(Content).all()
+    contents = db.query(Content).all()
+    # 为每个内容添加最新生成结果
+    for content in contents:
+        content.latest_generation = content.generations[0] if content.generations else None
+    return contents
 
-@router.get("/{content_id}", response_model=ContentResponse, responses={404: {"model": ErrorResponse, "description": "Content not found"}})
+@router.get("/{content_id}", response_model=ContentResponse)
 async def get_content(content_id: int, db: Session = Depends(get_db)):
     content = db.query(Content).filter(Content.id == content_id).first()
     if not content:
         raise HTTPException(status_code=404, detail="Content not found")
+    content.latest_generation = content.generations[0] if content.generations else None
     return content
 
-@router.post("/{content_id}/process", response_model=ContentResponse, responses={
+@router.get("/{content_id}/generations", response_model=List[GenerationResultResponse])
+async def get_generations(content_id: int, db: Session = Depends(get_db)):
+    content = db.query(Content).filter(Content.id == content_id).first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+    return content.generations
+
+@router.post("/{content_id}/process", response_model=GenerationResultResponse, responses={
     404: {"model": ErrorResponse, "description": "Content not found"},
     409: {"model": ErrorResponse, "description": "Content is already being processed"},
     422: {"model": ErrorResponse, "description": "AI provider configuration error"},
@@ -41,10 +53,6 @@ async def process_content(content_id: int, provider: str = None, db: Session = D
     if content.status == ContentStatus.PROCESSING:
         raise HTTPException(status_code=409, detail="Content is already being processed")
 
-    old_status = content.status
-    old_vernacular = content.vernacular_text
-    old_humorous = content.humorous_text
-
     content.status = ContentStatus.PROCESSING
     db.commit()
 
@@ -52,31 +60,31 @@ async def process_content(content_id: int, provider: str = None, db: Session = D
         vernacular = await ai_service.translate_to_vernacular(content.original_text, provider)
         humorous = await ai_service.create_humorous_version(vernacular, provider)
 
-        version_count = db.query(ContentVersion).filter(ContentVersion.content_id == content_id).count()
+        # 获取实际使用的 provider
+        actual_provider = provider or ai_service.default_provider or list(ai_service.providers.keys())[0]
 
-        content.vernacular_text = vernacular
-        content.humorous_text = humorous
+        # 创建新的生成结果
+        generation = GenerationResult(
+            content_id=content_id,
+            provider=actual_provider,
+            vernacular_text=vernacular,
+            humorous_text=humorous
+        )
+        db.add(generation)
+
         content.status = ContentStatus.COMPLETED
-
-        version1 = ContentVersion(content_id=content_id, version_number=version_count + 1, field_name="vernacular_text", field_value=vernacular)
-        version2 = ContentVersion(content_id=content_id, version_number=version_count + 2, field_name="humorous_text", field_value=humorous)
-        db.add(version1)
-        db.add(version2)
-
         db.commit()
-        db.refresh(content)
-        return content
+        db.refresh(generation)
+        return generation
     except ValueError as e:
         db.rollback()
         content = db.query(Content).filter(Content.id == content_id).first()
-        content.status = old_status
+        content.status = ContentStatus.DRAFT
         db.commit()
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         db.rollback()
         content = db.query(Content).filter(Content.id == content_id).first()
-        content.status = old_status
-        content.vernacular_text = old_vernacular
-        content.humorous_text = old_humorous
+        content.status = ContentStatus.DRAFT
         db.commit()
         raise HTTPException(status_code=500, detail="Processing failed")

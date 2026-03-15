@@ -30,9 +30,6 @@
             </select>
           </template>
         </div>
-        <div class="provider-hint" v-if="providerState === 'ready' && !canProcess">
-          请选择 AI provider 后再开始处理
-        </div>
       </div>
     </div>
 
@@ -102,9 +99,7 @@ export default {
     const showToast = (message, type = 'info') => {
       if (toastTimer) clearTimeout(toastTimer)
       toast.value = { show: true, message, type }
-      toastTimer = setTimeout(() => {
-        toast.value.show = false
-      }, 3000)
+      toastTimer = setTimeout(() => { toast.value.show = false }, 3000)
     }
 
     const loadContents = async () => {
@@ -168,8 +163,10 @@ export default {
         const res = await contentAPI.process(id, selectedProvider.value)
         showToast('处理完成', 'success')
         await loadContents()
+        // 重新加载选中的内容以获取最新生成结果
         if (selectedContent.value?.id === id) {
-          selectedContent.value = res.data
+          const contentRes = await contentAPI.get(id)
+          selectedContent.value = contentRes.data
         }
       } catch (error) {
         const status = error.response?.status
@@ -287,25 +284,10 @@ body {
   font-size: 0.9rem;
 }
 
-.provider-loading {
-  color: var(--color-ink-light);
-  font-size: 0.9rem;
-}
-
-.provider-error-text {
-  color: var(--color-error);
-  font-size: 0.9rem;
-}
-
-.provider-empty-text {
-  color: var(--color-processing);
-  font-size: 0.9rem;
-}
-
-.provider-current {
-  color: var(--color-ink-light);
-  font-size: 0.9rem;
-}
+.provider-loading { color: var(--color-ink-light); font-size: 0.9rem; }
+.provider-error-text { color: var(--color-error); font-size: 0.9rem; }
+.provider-empty-text { color: var(--color-processing); font-size: 0.9rem; }
+.provider-current { color: var(--color-ink-light); font-size: 0.9rem; }
 
 .provider-select {
   padding: 8px 16px;
@@ -334,14 +316,7 @@ body {
   cursor: pointer;
 }
 
-.retry-btn:hover {
-  background: var(--color-vermilion-light);
-}
-
-.provider-hint {
-  color: var(--color-ink-light);
-  font-size: 0.85rem;
-}
+.retry-btn:hover { background: var(--color-vermilion-light); }
 
 .workspace {
   flex: 1;
@@ -365,18 +340,9 @@ body {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto 1fr;
   }
-
-  .workspace-sidebar {
-    grid-column: 1 / -1;
-  }
-
-  .workspace-main {
-    grid-column: 1;
-  }
-
-  .workspace-list {
-    grid-column: 2;
-  }
+  .workspace-sidebar { grid-column: 1 / -1; }
+  .workspace-main { grid-column: 1; }
+  .workspace-list { grid-column: 2; }
 }
 
 @media (max-width: 768px) {
@@ -384,29 +350,22 @@ body {
     padding: 20px 16px;
     text-align: center;
   }
-
-  .header-brand h1 {
-    font-size: 1.5rem;
-  }
-
+  .header-brand h1 { font-size: 1.5rem; }
   .provider-bar-content {
     flex-direction: column;
     gap: 8px;
     padding: 12px 16px;
   }
-
   .provider-status {
     flex-wrap: wrap;
     justify-content: center;
   }
-
   .workspace {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto auto;
     gap: var(--spacing-md);
     padding: var(--spacing-md);
   }
-
   .workspace-sidebar,
   .workspace-main,
   .workspace-list {

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, field_validator
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from app.models.database import ContentStatus
 
@@ -9,6 +9,16 @@ class ErrorResponse(BaseModel):
 class ProviderInfoResponse(BaseModel):
     available_providers: list[str]
     default_provider: Optional[str] = None
+
+class GenerationResultResponse(BaseModel):
+    id: int
+    provider: str
+    vernacular_text: Optional[str] = None
+    humorous_text: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 class ContentCreate(BaseModel):
     title: str
@@ -25,11 +35,11 @@ class ContentResponse(BaseModel):
     id: int
     title: str
     original_text: str
-    vernacular_text: Optional[str] = None
-    humorous_text: Optional[str] = None
     status: ContentStatus
     created_at: datetime
     updated_at: datetime
+    generations: List[GenerationResultResponse] = []
+    latest_generation: Optional[GenerationResultResponse] = None
 
     class Config:
         from_attributes = True
@@ -38,8 +48,6 @@ class ContentResponse(BaseModel):
 class ContentUpdate(BaseModel):
     title: Optional[str] = None
     original_text: Optional[str] = None
-    vernacular_text: Optional[str] = None
-    humorous_text: Optional[str] = None
 
 class MaterialCreate(BaseModel):
     name: str

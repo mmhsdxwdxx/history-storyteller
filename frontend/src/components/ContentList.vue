@@ -42,18 +42,25 @@
           </span>
         </div>
         <p class="list-item-preview">{{ getPreview(item.original_text) }}</p>
+        <div class="list-item-meta">
+          <span v-if="item.latest_generation" class="meta-provider">
+            {{ item.latest_generation.provider }}
+          </span>
+          <span v-if="item.latest_generation" class="meta-time">
+            {{ formatTime(item.latest_generation.created_at) }}
+          </span>
+          <span v-else class="meta-unprocessed">未处理</span>
+        </div>
         <div class="list-item-footer">
-          <span class="list-item-time">{{ formatTime(item.updated_at) }}</span>
+          <span class="list-item-time">创建于 {{ formatTime(item.created_at) }}</span>
           <div class="list-item-actions">
             <button
-              v-if="item.status !== 'processing' && item.status !== 'completed'"
               @click.stop="$emit('process', item.id)"
               :disabled="processingIds.has(item.id) || !hasProvider"
               class="list-item-btn"
             >
-              {{ processingIds.has(item.id) ? '处理中...' : '开始处理' }}
+              {{ processingIds.has(item.id) ? '处理中...' : '生成' }}
             </button>
-            <span v-if="item.status === 'completed'" class="status-done">已完成</span>
           </div>
         </div>
         <div v-if="!hasProvider && item.status === 'draft'" class="list-item-hint">
@@ -83,6 +90,7 @@ export default {
     }
 
     const getPreview = (text) => {
+      if (!text) return ''
       return text.length > 50 ? text.slice(0, 50) + '...' : text
     }
 
@@ -146,14 +154,8 @@ export default {
   gap: var(--spacing-sm);
 }
 
-.list-error {
-  color: var(--color-error);
-}
-
-.list-empty-hint {
-  font-size: 0.875rem;
-  opacity: 0.7;
-}
+.list-error { color: var(--color-error); }
+.list-empty-hint { font-size: 0.875rem; opacity: 0.7; }
 
 .spinner {
   width: 32px;
@@ -164,9 +166,7 @@ export default {
   animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .list-items {
   flex: 1;
@@ -222,27 +222,34 @@ export default {
   white-space: nowrap;
 }
 
-.status-draft {
-  background: #f3f4f6;
-  color: var(--color-draft);
-}
-
-.status-processing {
-  background: #fef3c7;
-  color: var(--color-processing);
-}
-
-.status-completed {
-  background: #d1fae5;
-  color: var(--color-completed);
-}
+.status-draft { background: #f3f4f6; color: var(--color-draft); }
+.status-processing { background: #fef3c7; color: var(--color-processing); }
+.status-completed { background: #d1fae5; color: var(--color-completed); }
 
 .list-item-preview {
   font-size: 0.875rem;
   color: var(--color-ink-light);
   line-height: 1.5;
-  margin-bottom: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
 }
+
+.list-item-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+  font-size: 0.75rem;
+}
+
+.meta-provider {
+  background: var(--color-vermilion);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.meta-time { color: var(--color-ink-light); }
+.meta-unprocessed { color: var(--color-draft); font-style: italic; }
 
 .list-item-footer {
   display: flex;
@@ -251,16 +258,9 @@ export default {
   gap: var(--spacing-sm);
 }
 
-.list-item-time {
-  font-size: 0.75rem;
-  color: var(--color-ink-light);
-}
+.list-item-time { font-size: 0.75rem; color: var(--color-ink-light); }
 
-.list-item-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-}
+.list-item-actions { display: flex; align-items: center; gap: var(--spacing-sm); }
 
 .list-item-btn {
   padding: 4px 12px;
@@ -279,15 +279,7 @@ export default {
   border-color: var(--color-vermilion);
 }
 
-.list-item-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.status-done {
-  font-size: 0.8rem;
-  color: var(--color-completed);
-}
+.list-item-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .list-item-hint {
   margin-top: var(--spacing-xs);
@@ -297,23 +289,13 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .list {
-    padding: var(--spacing-md);
-  }
-
+  .list { padding: var(--spacing-md); }
   .list-item-footer {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--spacing-xs);
   }
-
-  .list-item-actions {
-    width: 100%;
-  }
-
-  .list-item-btn {
-    width: 100%;
-    text-align: center;
-  }
+  .list-item-actions { width: 100%; }
+  .list-item-btn { width: 100%; text-align: center; }
 }
 </style>
