@@ -23,6 +23,21 @@ def get_effective_generation(content: Content):
         }
     return None
 
+def get_all_generations(content: Content):
+    """获取所有生成结果，包含旧数据兼容"""
+    if content.generations:
+        return content.generations
+    # 旧数据兼容：如果没有 generations 但有旧字段，返回兼容的 generation
+    if content.vernacular_text or content.humorous_text:
+        return [{
+            "id": 0,
+            "provider": content.legacy_provider or "legacy",
+            "vernacular_text": content.vernacular_text,
+            "humorous_text": content.humorous_text,
+            "created_at": content.updated_at
+        }]
+    return []
+
 @router.post("", response_model=ContentResponse)
 async def create_content(content: ContentCreate, db: Session = Depends(get_db)):
     db_content = Content(title=content.title, original_text=content.original_text)
@@ -37,6 +52,7 @@ async def list_contents(db: Session = Depends(get_db)):
     contents = db.query(Content).all()
     for content in contents:
         content.latest_generation = get_effective_generation(content)
+        content.generations = get_all_generations(content)
     return contents
 
 @router.get("/{content_id}", response_model=ContentResponse)
@@ -45,6 +61,7 @@ async def get_content(content_id: int, db: Session = Depends(get_db)):
     if not content:
         raise HTTPException(status_code=404, detail="Content not found")
     content.latest_generation = get_effective_generation(content)
+    content.generations = get_all_generations(content)
     return content
 
 @router.get("/{content_id}/generations", response_model=List[GenerationResultResponse])

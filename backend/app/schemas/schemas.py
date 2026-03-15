@@ -10,6 +10,25 @@ class ProviderInfoResponse(BaseModel):
     available_providers: list[str]
     default_provider: Optional[str] = None
 
+class ProviderConfigCreate(BaseModel):
+    provider_name: str
+    api_url: str
+    api_key: str
+    model: str
+    is_default: bool = False
+
+class ProviderConfigResponse(BaseModel):
+    id: int
+    provider_name: str
+    api_url: str
+    model: str
+    is_default: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
 class GenerationResultResponse(BaseModel):
     id: int
     provider: str

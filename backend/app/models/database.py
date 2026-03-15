@@ -70,3 +70,15 @@ class Schedule(Base):
     scheduled_date = Column(DateTime, nullable=False)
     status = Column(String(20), default="pending")
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class ProviderConfig(Base):
+    __tablename__ = "provider_configs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    provider_name = Column(String(50), unique=True, nullable=False)
+    api_url = Column(String(500), nullable=False)
+    api_key = Column(String(500), nullable=False)
+    model = Column(String(100), nullable=False)
+    is_default = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
