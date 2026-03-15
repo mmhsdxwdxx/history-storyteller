@@ -36,7 +36,7 @@
           </select>
           <span>vs</span>
           <select v-model="compareGen2">
-            <option v-for="gen in content.generations" :key="gen.id" :value="gen.id">
+            <option v-for="gen in content.generations" :key="gen.id" :value="gen.id" :disabled="gen.id === compareGen1">
               {{ gen.provider }} - {{ formatTime(gen.created_at) }}
             </option>
           </select>
@@ -55,7 +55,7 @@
 
       <div v-else class="detail-sections">
         <section v-if="currentGeneration" class="detail-section main-section">
-          <div class="section-header" @click="toggleSection('humorous')">
+          <div class="section-header">
             <h3>最终文案</h3>
             <span class="gen-provider">{{ currentGeneration.provider }}</span>
           </div>

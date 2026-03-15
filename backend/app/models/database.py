@@ -21,6 +21,11 @@ class Content(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # 旧数据兼容字段（新版用 generation_results）
+    vernacular_text = Column(Text)
+    humorous_text = Column(Text)
+    legacy_provider = Column(String(50))  # 记录旧数据使用的 provider
+
     versions = relationship("ContentVersion", back_populates="content")
     generations = relationship("GenerationResult", back_populates="content", order_by="desc(GenerationResult.created_at)")
 
