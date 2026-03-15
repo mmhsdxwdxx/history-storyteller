@@ -15,5 +15,8 @@ export const contentAPI = {
 }
 
 export const providerAPI = {
-  list: () => api.get('/providers')
+  list: () => api.get('/providers'),
+  getConfigs: () => api.get('/providers/configs'),
+  saveConfig: (data) => api.post('/providers/configs', data),
+  reload: () => api.post('/providers/reload')
 }

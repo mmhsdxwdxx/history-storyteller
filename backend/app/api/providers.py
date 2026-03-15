@@ -24,7 +24,7 @@ async def get_provider_configs(db: Session = Depends(get_db)):
 
 @router.post("/configs", response_model=ProviderConfigResponse)
 async def save_provider_config(config: ProviderConfigCreate, db: Session = Depends(get_db)):
-    """保存或更新 provider 配置"""
+    """保存或更新 provider 配置，并立即重载"""
     existing = db.query(ProviderConfig).filter(
         ProviderConfig.provider_name == config.provider_name
     ).first()
@@ -38,6 +38,7 @@ async def save_provider_config(config: ProviderConfigCreate, db: Session = Depen
         existing.is_default = 1 if config.is_default else 0
         db.commit()
         db.refresh(existing)
+        ai_service.reload_from_db(db)
         return existing
     else:
         if config.is_default:
@@ -52,12 +53,11 @@ async def save_provider_config(config: ProviderConfigCreate, db: Session = Depen
         db.add(new_config)
         db.commit()
         db.refresh(new_config)
+        ai_service.reload_from_db(db)
         return new_config
 
 @router.post("/reload")
 async def reload_providers(db: Session = Depends(get_db)):
-    """重新加载 provider 配置"""
-    from app.services.ai_service import AIService
-    global ai_service
-    ai_service = AIService(db)
+    """重新加载 provider 配置（从数据库）"""
+    ai_service.reload_from_db(db)
     return {"message": "Providers reloaded", "available": list(ai_service.providers.keys())}

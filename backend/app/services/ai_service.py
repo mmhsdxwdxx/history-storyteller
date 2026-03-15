@@ -7,7 +7,10 @@ class AIService:
     def __init__(self):
         self.providers = {}
         self.default_provider = settings.DEFAULT_PROVIDER
+        self._load_from_settings()
 
+    def _load_from_settings(self):
+        """从环境变量/Settings 加载配置"""
         if settings.OPENAI_API_URL and settings.OPENAI_API_KEY:
             self.providers["openai"] = OpenAIProvider(
                 settings.OPENAI_API_URL,
@@ -29,10 +32,44 @@ class AIService:
                 settings.GEMINI_MODEL
             )
 
+    def reload_from_db(self, db):
+        """从数据库重新加载 provider 配置"""
+        from app.models.database import ProviderConfig
+
+        configs = db.query(ProviderConfig).all()
+        if not configs:
+            # 数据库没有配置，使用环境变量
+            self._load_from_settings()
+            return
+
+        self.providers = {}
+        self.default_provider = None
+
+        for config in configs:
+            if config.provider_name == "openai":
+                self.providers["openai"] = OpenAIProvider(
+                    config.api_url, config.api_key, config.model
+                )
+            elif config.provider_name == "anthropic":
+                self.providers["anthropic"] = AnthropicProvider(
+                    config.api_url, config.api_key, config.model
+                )
+            elif config.provider_name == "gemini":
+                self.providers["gemini"] = GeminiProvider(
+                    config.api_url, config.api_key, config.model
+                )
+
+            if config.is_default:
+                self.default_provider = config.provider_name
+
+        # 如果没有默认，选第一个
+        if not self.default_provider and self.providers:
+            self.default_provider = list(self.providers.keys())[0]
+
     async def translate_to_vernacular(self, original_text: str, provider: str = None) -> str:
         if not provider:
-            if settings.DEFAULT_PROVIDER and settings.DEFAULT_PROVIDER in self.providers:
-                provider = settings.DEFAULT_PROVIDER
+            if self.default_provider and self.default_provider in self.providers:
+                provider = self.default_provider
             elif len(self.providers) > 0:
                 provider = list(self.providers.keys())[0]
             else:
@@ -48,8 +85,8 @@ class AIService:
 
     async def create_humorous_version(self, vernacular_text: str, provider: str = None) -> str:
         if not provider:
-            if settings.DEFAULT_PROVIDER and settings.DEFAULT_PROVIDER in self.providers:
-                provider = settings.DEFAULT_PROVIDER
+            if self.default_provider and self.default_provider in self.providers:
+                provider = self.default_provider
             elif len(self.providers) > 0:
                 provider = list(self.providers.keys())[0]
             else:
@@ -63,4 +100,5 @@ class AIService:
         prompt = f"请将以下白话文改写成诙谐有趣、适合小红书发布的文稿：\n\n{vernacular_text}"
         return await self.providers[provider].generate(prompt, system_prompt)
 
+# 模块级单例
 ai_service = AIService()

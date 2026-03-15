@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from app.models.database import Content, ContentStatus, GenerationResult, ContentVersion
 from app.schemas.schemas import ContentCreate, ContentResponse, GenerationResultResponse, ErrorResponse
 from app.services.ai_service import ai_service
@@ -8,35 +8,58 @@ from app.database import get_db
 
 router = APIRouter(prefix="/api/contents", tags=["contents"])
 
-def get_effective_generation(content: Content):
-    """获取有效生成结果，优先使用新版generation_results，兼容旧数据"""
-    if content.generations:
-        return content.generations[0]
-    # 旧数据兼容：如果没有 generations 但有旧字段，创建虚拟 generation
-    if content.vernacular_text or content.humorous_text:
-        return {
-            "id": 0,
-            "provider": content.legacy_provider or "legacy",
-            "vernacular_text": content.vernacular_text,
-            "humorous_text": content.humorous_text,
-            "created_at": content.updated_at
-        }
-    return None
 
-def get_all_generations(content: Content):
-    """获取所有生成结果，包含旧数据兼容"""
+def _build_generation_dict(gen: GenerationResult) -> dict:
+    """将 GenerationResult ORM 对象转换为字典"""
+    return {
+        "id": gen.id,
+        "provider": gen.provider,
+        "vernacular_text": gen.vernacular_text,
+        "humorous_text": gen.humorous_text,
+        "created_at": gen.created_at
+    }
+
+
+def _build_legacy_generation(content: Content) -> Optional[dict]:
+    """为旧数据构建兼容的 generation 字典"""
+    if not content.vernacular_text and not content.humorous_text:
+        return None
+    return {
+        "id": 0,
+        "provider": content.legacy_provider or "legacy",
+        "vernacular_text": content.vernacular_text,
+        "humorous_text": content.humorous_text,
+        "created_at": content.updated_at
+    }
+
+
+def _get_all_generations(content: Content) -> List[dict]:
+    """获取所有生成结果的字典列表（不修改 ORM 对象）"""
     if content.generations:
-        return content.generations
-    # 旧数据兼容：如果没有 generations 但有旧字段，返回兼容的 generation
-    if content.vernacular_text or content.humorous_text:
-        return [{
-            "id": 0,
-            "provider": content.legacy_provider or "legacy",
-            "vernacular_text": content.vernacular_text,
-            "humorous_text": content.humorous_text,
-            "created_at": content.updated_at
-        }]
-    return []
+        return [_build_generation_dict(g) for g in content.generations]
+    legacy = _build_legacy_generation(content)
+    return [legacy] if legacy else []
+
+
+def _get_latest_generation(content: Content) -> Optional[dict]:
+    """获取最新生成结果的字典（不修改 ORM 对象）"""
+    if content.generations:
+        return _build_generation_dict(content.generations[0])
+    return _build_legacy_generation(content)
+
+
+def _build_content_response(content: Content) -> dict:
+    """构建 Content 响应字典（不修改 ORM 对象）"""
+    return {
+        "id": content.id,
+        "title": content.title,
+        "original_text": content.original_text,
+        "status": content.status,
+        "created_at": content.created_at,
+        "updated_at": content.updated_at,
+        "generations": _get_all_generations(content),
+        "latest_generation": _get_latest_generation(content)
+    }
 
 @router.post("", response_model=ContentResponse)
 async def create_content(content: ContentCreate, db: Session = Depends(get_db)):
@@ -44,41 +67,28 @@ async def create_content(content: ContentCreate, db: Session = Depends(get_db)):
     db.add(db_content)
     db.commit()
     db.refresh(db_content)
-    db_content.latest_generation = None
-    return db_content
+    return _build_content_response(db_content)
+
 
 @router.get("", response_model=List[ContentResponse])
 async def list_contents(db: Session = Depends(get_db)):
     contents = db.query(Content).all()
-    for content in contents:
-        content.latest_generation = get_effective_generation(content)
-        content.generations = get_all_generations(content)
-    return contents
+    return [_build_content_response(c) for c in contents]
+
 
 @router.get("/{content_id}", response_model=ContentResponse)
 async def get_content(content_id: int, db: Session = Depends(get_db)):
     content = db.query(Content).filter(Content.id == content_id).first()
     if not content:
         raise HTTPException(status_code=404, detail="Content not found")
-    content.latest_generation = get_effective_generation(content)
-    content.generations = get_all_generations(content)
-    return content
+    return _build_content_response(content)
 
 @router.get("/{content_id}/generations", response_model=List[GenerationResultResponse])
 async def get_generations(content_id: int, db: Session = Depends(get_db)):
     content = db.query(Content).filter(Content.id == content_id).first()
     if not content:
         raise HTTPException(status_code=404, detail="Content not found")
-    # 如果没有 generations 但有旧数据，返回兼容的 generation
-    if not content.generations and (content.vernacular_text or content.humorous_text):
-        return [{
-            "id": 0,
-            "provider": content.legacy_provider or "legacy",
-            "vernacular_text": content.vernacular_text,
-            "humorous_text": content.humorous_text,
-            "created_at": content.updated_at
-        }]
-    return content.generations
+    return _get_all_generations(content)
 
 @router.post("/{content_id}/migrate", response_model=GenerationResultResponse)
 async def migrate_legacy_data(content_id: int, db: Session = Depends(get_db)):
